@@ -1,16 +1,81 @@
-# React + Vite
+# Sensor Dashboard — Industrial IoT Monitor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Dashboard de monitoreo de sensores en tiempo real, construido con React + Recharts + Framer Motion.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+| Paquete | Uso |
+|---|---|
+| `react` + `react-dom` | UI y renderizado |
+| `recharts` | Gráficos de líneas y barras |
+| `framer-motion` | Animaciones de tarjetas y transiciones tabla↔gráfico |
+| `vite` | Dev server y bundler |
 
-## React Compiler
+## Instalación y arranque
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 1. Instalar dependencias
+npm install
 
-## Expanding the ESLint configuration
+# 2. Arrancar en desarrollo (abre en http://localhost:3000)
+npm run dev
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+# 3. Build de producción
+npm run build
+
+# 4. Preview del build
+npm run preview
+```
+
+## Estructura del proyecto
+
+```
+src/
+├── main.jsx                  # Entry point React
+├── App.jsx                   # Raíz — estado global + composición
+│
+├── constants/
+│   ├── palette.js            # Tokens de color (escala verde G[50..900])
+│   ├── sensorMeta.js         # Metadatos estáticos de sensores
+│   └── statusConfig.js       # Config visual por estado (ACTIVO, ALERTA…)
+│
+├── utils/
+│   └── generateReadings.js   # Mock data + appendReading() para polling
+│
+└── components/
+    ├── Header.jsx            # Barra superior + countdown ring + controles
+    ├── SummaryStrip.jsx      # 4 KPIs de estado
+    ├── FilterBar.jsx         # Búsqueda + filtros de estado + planta
+    ├── SensorCard.jsx        # Tarjeta expandible con tabla/gráfico
+    ├── ChartView.jsx         # Gráfico líneas/barras (Recharts)
+    ├── TableView.jsx         # Tabla de históricos scrollable
+    ├── Sparkline.jsx         # Mini línea decorativa
+    └── ChartTooltip.jsx      # Tooltip custom de Recharts
+```
+
+## Conectar a la API real
+
+En `src/utils/generateReadings.js`, reemplaza `appendReading()` con una llamada real:
+
+```js
+// Ejemplo con fetch
+export async function fetchLatestReadings(sensorId) {
+  const res = await fetch(`/api/sensors/${sensorId}/readings?limit=25`);
+  return res.json(); // [{ id, valor, unidad, timeDay, sensorId }]
+}
+```
+
+Y en `App.jsx`, dentro de `refreshData()`:
+
+```js
+const refreshData = useCallback(async () => {
+  const updates = await Promise.all(
+    SENSOR_META.map(s => fetchLatestReadings(s.id))
+  );
+  setAllReadings(Object.fromEntries(
+    SENSOR_META.map((s, i) => [s.id, updates[i]])
+  ));
+  setLastUpdate(new Date());
+  setCountdown(10);
+}, []);
+```
