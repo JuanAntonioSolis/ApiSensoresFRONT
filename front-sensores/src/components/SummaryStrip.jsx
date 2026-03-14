@@ -11,11 +11,11 @@ import { STATUS_CONFIG } from "../constants/statusConfig";
 //   sensors  Array  — full SENSOR_META array (unfiltered)
 
 export default function SummaryStrip({ sensors }) {
-  // Count sensors per status key
+  // Count sensors per state key
   const counts = Object.fromEntries(
     Object.keys(STATUS_CONFIG).map(k => [
       k,
-      sensors.filter(s => s.status === k).length,
+      sensors.filter(s => s.state === k).length,
     ])
   );
 
