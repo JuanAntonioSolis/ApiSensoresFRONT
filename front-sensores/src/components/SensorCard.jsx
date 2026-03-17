@@ -8,6 +8,7 @@ import { STATES_BY_TYPE } from '../constants/sensorMeta';
 import { STATUS_CONFIG } from '../constants/statusConfig';
 
 
+
 const ICON_BY_TYPE = {
     VOLUMEN:       "◈",
     PULSADOR:      "◎",
@@ -38,6 +39,12 @@ const SensorCard = ({ sensor, lectures = [] }) => {
     const [currentState, setCurrentState] = useState(sensor.state);
     const [updating, setUpdating] = useState(false);
 
+    const [filteredLectures, setFilteredLectures] = useState(null);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo]     = useState('');
+    const [filtering, setFiltering] = useState(false);
+    const [filterError, setFilterError] = useState(null);
+
 
     const status      = getStatusConfig(currentState);
     const icon        = ICON_BY_TYPE[sensor.type] ?? "◌";
@@ -49,13 +56,6 @@ const SensorCard = ({ sensor, lectures = [] }) => {
         ? (lastLecture.valor - prevLecture.valor).toFixed(2)
         : null;
     const trend = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
-
-    const max = lectures.length ? Math.max(...lectures.map(l => l.valor)).toFixed(1) : '—';
-    const min = lectures.length ? Math.min(...lectures.map(l => l.valor)).toFixed(1) : '—';
-    const avg = lectures.length
-        ? (lectures.reduce((s, l) => s + l.valor, 0) / lectures.length).toFixed(1)
-        : '—';
-
 
 
     const handleStateChange = async (newState) => {
@@ -73,6 +73,39 @@ const SensorCard = ({ sensor, lectures = [] }) => {
 
     const availableStates = STATES_BY_TYPE[sensor.type] ?? ['ENCENDIDO', 'APAGADO', 'MANTENIMIENTO', 'ALERTA'];
     const statusNow = getStatusConfig(currentState);
+
+    const handleDateFilter = async () => {
+        if (!dateFrom || !dateTo) return;
+        try {
+            setFiltering(true);
+            setFilterError(null);
+            const inicio = dateFrom.length === 16 ? dateFrom + ':00' : dateFrom;
+            const fin    = dateTo.length   === 16 ? dateTo   + ':00' : dateTo;
+            const data = await taskApi.getLecturesByDateRange(sensor.id, inicio, fin);
+            setFilteredLectures(data);
+        } catch (err) {
+            setFilterError('Sin lecturas para el rango seleccionado');
+            setFilteredLectures([]);
+        } finally {
+            setFiltering(false);
+        }
+    };
+
+    const clearFilter = () => {
+        setFilteredLectures(null);
+        setDateFrom('');
+        setDateTo('');
+        setFilterError(null);
+    };
+
+    //lecturas activas son las filtradas si hay filtro, sino las normales
+    const activeLectures = filteredLectures ?? lectures;
+
+    const max = activeLectures.length ? Math.max(...activeLectures.map(l => l.valor)).toFixed(1) : '—';
+    const min = activeLectures.length ? Math.min(...activeLectures.map(l => l.valor)).toFixed(1) : '—';
+    const avg = activeLectures.length
+        ? (activeLectures.reduce((s, l) => s + l.valor, 0) / activeLectures.length).toFixed(1)
+        : '—';
 
     return (
         <motion.div
@@ -154,7 +187,7 @@ const SensorCard = ({ sensor, lectures = [] }) => {
                 {/* Sparkline */}
                 <div style={{ marginTop: 8, opacity: 0.6, height: 40 }}>
                     {lectures.length > 0
-                        ? <Sparkline data={lectures} />
+                        ? <Sparkline data={activeLectures} />
                         : <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'center', height: '100%' }}>Sin datos históricos</div>
                     }
                 </div>
@@ -172,6 +205,87 @@ const SensorCard = ({ sensor, lectures = [] }) => {
                         style={{ overflow: 'hidden' }}
                         onClick={e => e.stopPropagation()}
                     >
+
+                        {/* ── Selector de rango de fechas ─────────────────────────── */}
+                        <div style={{
+                            padding: '12px 18px',
+                            background: '#f8fafc',
+                            borderBottom: '1px solid #f1f5f9',
+                            display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center',
+                        }}>
+                            <div style={{ fontSize: 9, color: '#94a3b8', fontFamily: "'DM Mono', monospace", letterSpacing: '0.08em', width: '100%' }}>
+                                FILTRAR POR FECHA
+                            </div>
+
+                            <input
+                                type="datetime-local"
+                                value={dateFrom}
+                                onChange={e => setDateFrom(e.target.value)}
+                                style={{
+                                    padding: '5px 8px', borderRadius: 8,
+                                    border: '1.5px solid #e2e8f0', fontSize: 11,
+                                    fontFamily: "'DM Mono', monospace", color: '#334155',
+                                    background: '#fff', outline: 'none', cursor: 'pointer',
+                                }}
+                            />
+
+                            <span style={{ fontSize: 11, color: '#cbd5e1', fontFamily: "'DM Mono', monospace" }}>→</span>
+
+                            <input
+                                type="datetime-local"
+                                value={dateTo}
+                                onChange={e => setDateTo(e.target.value)}
+                                style={{
+                                    padding: '5px 8px', borderRadius: 8,
+                                    border: '1.5px solid #e2e8f0', fontSize: 11,
+                                    fontFamily: "'DM Mono', monospace", color: '#334155',
+                                    background: '#fff', outline: 'none', cursor: 'pointer',
+                                }}
+                            />
+
+                            <button
+                                onClick={handleDateFilter}
+                                disabled={!dateFrom || !dateTo || filtering}
+                                style={{
+                                    padding: '5px 14px', borderRadius: 8,
+                                    border: 'none', background: (!dateFrom || !dateTo || filtering) ? '#e2e8f0' : '#22c55e',
+                                    color: (!dateFrom || !dateTo || filtering) ? '#94a3b8' : '#fff',
+                                    fontSize: 10, fontFamily: "'DM Mono', monospace",
+                                    fontWeight: 700, cursor: (!dateFrom || !dateTo || filtering) ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                {filtering ? '…' : '⌕ Filtrar'}
+                            </button>
+
+                            {filteredLectures !== null && (
+                                <button
+                                    onClick={clearFilter}
+                                    style={{
+                                        padding: '5px 10px', borderRadius: 8,
+                                        border: '1.5px solid #fecaca', background: '#fef2f2',
+                                        color: '#ef4444', fontSize: 10,
+                                        fontFamily: "'DM Mono', monospace", fontWeight: 600,
+                                        cursor: 'pointer', transition: 'all 0.15s',
+                                    }}
+                                >
+                                    ✕ Limpiar
+                                </button>
+                            )}
+
+                            {filterError && (
+                                <span style={{ fontSize: 10, color: '#ef4444', fontFamily: "'DM Mono', monospace" }}>
+            ⚠ {filterError}
+        </span>
+                            )}
+
+                            {filteredLectures !== null && !filterError && (
+                                <span style={{ fontSize: 10, color: '#22c55e', fontFamily: "'DM Mono', monospace" }}>
+            {filteredLectures.length} lectura{filteredLectures.length !== 1 ? 's' : ''} encontrada{filteredLectures.length !== 1 ? 's' : ''}
+        </span>
+                            )}
+                        </div>
+
                         {/* Tabs tabla/gráfico */}
                         <div style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -219,8 +333,8 @@ const SensorCard = ({ sensor, lectures = [] }) => {
                                     transition={{ duration: 0.25, ease: 'easeInOut' }}
                                 >
                                     {view === 'table'
-                                        ? <TableView data={lectures} unit={unit} />
-                                        : <ChartView data={lectures} chartType={chartType} />
+                                        ? <TableView data={activeLectures} unit={unit} />
+                                        : <ChartView data={activeLectures} chartType={chartType} />
                                     }
                                 </motion.div>
                             </AnimatePresence>

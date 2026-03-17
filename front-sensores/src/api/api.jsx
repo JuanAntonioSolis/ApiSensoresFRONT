@@ -20,11 +20,13 @@ export const taskApi = {
     getAllLectures: async () => {
         const response = await axios.get(`${API_BASE_URL}/lectures`);
         return response.data;
-    }
+    },
 
-
-
-
-
+    getLecturesByDateRange: async (sensorId, inicio, fin) => {
+        const response = await axios.get(`${API_BASE_URL}/lectures/sensor/${sensorId}`, {
+            params: { inicio, fin }
+        });
+        return response.data;
+    },
 
 };
