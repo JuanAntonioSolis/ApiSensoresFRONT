@@ -1,8 +1,8 @@
 import axios from "axios";
 
 
-//const API_BASE_URL = 'http://localhost:8080';
-const API_BASE_URL = 'https://apisensoresback.duckdns.org';
+const API_BASE_URL = 'http://localhost:8080';
+//const API_BASE_URL = 'https://apisensoresback.duckdns.org';
 
 
 export const taskApi = {
@@ -19,6 +19,14 @@ export const taskApi = {
 
     getAllLectures: async () => {
         const response = await axios.get(`${API_BASE_URL}/lectures`);
+        return response.data;
+    },
+
+    getLecturesByDateRange: async (sensorId, inicio, fin) => {
+        const response = await axios.get(
+            `${API_BASE_URL}/lectures/sensor/${sensorId}`,
+            { params: { inicio, fin } }
+        );
         return response.data;
     }
 
